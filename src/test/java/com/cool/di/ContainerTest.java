@@ -1,5 +1,7 @@
 package com.cool.di;
 
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -7,22 +9,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 public class ContainerTest {
 
-    interface Component {
+    private Context context;
 
+    @BeforeEach
+    public void setup() {
+        context = new Context();
     }
 
-    static class ComponentWithDefaultConstructor implements Component {
-
-        public ComponentWithDefaultConstructor() {
-        }
-    }
 
     @Nested
     public class ComponentConstruction {
         // instance
         @Test
         public void should_bind_type_to_a_specified_instance() {
-            Context context = new Context();
             Component instance = new Component() {
             };
             context.bind(Component.class, instance);
@@ -37,10 +36,9 @@ public class ContainerTest {
         @Nested
         public class ConstructionInjection {
 
-            // TODO No args constructor
+            //  No args constructor
             @Test
             public void should_bind_type_to_class_with_no_args_constructor() {
-                Context context = new Context();
                 context.bind(Component.class, ComponentWithDefaultConstructor.class);
 
                 Component instance = context.get(Component.class);
@@ -49,7 +47,21 @@ public class ContainerTest {
                 assertTrue(instance instanceof ComponentWithDefaultConstructor);
 
             }
+
             // TODO With args constructor
+            @Test
+            public void should_bind_type_to_a_class_with_inject_constructor() {
+                Dependency dependency = new Dependency() {
+                };
+                context.bind(Component.class, ComponentWithInjectConstructor.class);
+                context.bind(Dependency.class, dependency);
+
+                Component component = context.get(Component.class);
+
+                assertNotNull(component);
+                assertSame(dependency, ((ComponentWithInjectConstructor) component).getDependency());
+
+            }
             // TODO A->B->C
 
         }
@@ -73,5 +85,33 @@ public class ContainerTest {
     @Nested
     public class LifecycleManagement {
 
+    }
+}
+
+interface Component {
+
+}
+
+interface Dependency {
+
+}
+
+class ComponentWithDefaultConstructor implements Component {
+
+    public ComponentWithDefaultConstructor() {
+    }
+}
+
+class ComponentWithInjectConstructor implements Component {
+
+    private Dependency dependency;
+
+    @Inject
+    public ComponentWithInjectConstructor(Dependency dependency) {
+        this.dependency = dependency;
+    }
+
+    public Dependency getDependency() {
+        return dependency;
     }
 }
