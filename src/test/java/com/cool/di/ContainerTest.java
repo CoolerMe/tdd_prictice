@@ -63,11 +63,11 @@ public class ContainerTest {
 
             }
 
-            // TODO A->B->C
+            //  A->B->C
             @Test
             public void should_bind_type_to_a_class_with_transitive_dependencies() {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
-                context.bind(Dependency.class,DependencyWithInjectConstructor.class);
+                context.bind(Dependency.class, DependencyWithInjectConstructor.class);
                 String anotherDependency = "Inject dependency";
                 context.bind(String.class, anotherDependency);
 
@@ -79,6 +79,23 @@ public class ContainerTest {
 
                 assertSame(anotherDependency, ((DependencyWithInjectConstructor) dependency).getAnotherDependency());
             }
+
+            //  multi inject constructor
+            @Test
+            public void should_throw_exception_if_multi_inject_constructors_provided() {
+                assertThrows(IllegalComponentException.class, () -> {
+                    context.bind(Component.class, ComponentWithMultiInjectConstructors.class);
+                });
+            }
+
+            // TODO no default or inject constructor
+            @Test
+            public void should_throw_exception_if_no_inject_nor_default_constructor_provided() {
+                assertThrows(IllegalComponentException.class, () -> {
+                    context.bind(Component.class, ComponentWithNoInjectNorDefaultConstructor.class);
+                });
+            }
+            // TODO dependency not provided
         }
 
         @Nested
@@ -128,6 +145,32 @@ class ComponentWithInjectConstructor implements Component {
 
     public Dependency getDependency() {
         return dependency;
+    }
+}
+
+class ComponentWithMultiInjectConstructors implements Component {
+
+    private String name;
+    private Double value;
+
+    @Inject
+    public ComponentWithMultiInjectConstructors(String name, Double value) {
+        this.name = name;
+        this.value = value;
+    }
+
+    @Inject
+    public ComponentWithMultiInjectConstructors(String name) {
+        this.name = name;
+    }
+}
+
+class ComponentWithNoInjectNorDefaultConstructor implements Component {
+
+    private String name;
+
+    public ComponentWithNoInjectNorDefaultConstructor(String name) {
+        this.name = name;
     }
 }
 

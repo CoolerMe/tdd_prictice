@@ -22,6 +22,17 @@ public class Context {
     }
 
     public <Type, Implementation extends Type> void bind(Class<Type> type, Class<Implementation> implementation) {
+        Constructor<?>[] constructors = Arrays.stream(implementation.getConstructors())
+                .filter(c -> c.isAnnotationPresent(Inject.class))
+                .toArray(Constructor<?>[]::new);
+        if (constructors.length > 1) {
+            throw new IllegalComponentException();
+        }
+
+        if (constructors.length == 0 && Arrays.stream(implementation.getConstructors())
+                .noneMatch(constructor -> constructor.getParameters().length == 0)) {
+            throw new IllegalComponentException();
+        }
         providers.put(type, () -> {
             try {
                 Constructor<?> constructor = getConstructor(implementation);
@@ -39,14 +50,13 @@ public class Context {
         Stream<Constructor<?>> stream = Arrays.stream(implementation.getConstructors())
                 .filter(constructor -> constructor.isAnnotationPresent(Inject.class));
         return stream.findFirst()
-                .orElseGet(() -> getInjectConstructor(implementation));
+                .orElseGet(() -> {
+                    try {
+                        return implementation.getConstructor();
+                    } catch (NoSuchMethodException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
-    private static <Type> Constructor<Type> getInjectConstructor(Class<Type> implementation) {
-        try {
-            return implementation.getConstructor();
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
