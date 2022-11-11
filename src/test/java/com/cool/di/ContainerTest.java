@@ -26,9 +26,14 @@ public class ContainerTest {
             };
             context.bind(Component.class, instance);
 
-            Component component = context.get(Component.class);
+            Component component = context.get(Component.class).get();
 
             assertSame(instance, component);
+        }
+
+        @Test
+        public void should_return_null_if_component_not_defined() {
+            assertTrue(context.get(Component.class).isEmpty());
         }
 
         // TODO abstract class
@@ -41,7 +46,7 @@ public class ContainerTest {
             public void should_bind_type_to_class_with_no_args_constructor() {
                 context.bind(Component.class, ComponentWithDefaultConstructor.class);
 
-                Component instance = context.get(Component.class);
+                Component instance = context.get(Component.class).get();
 
                 assertNotNull(instance);
                 assertTrue(instance instanceof ComponentWithDefaultConstructor);
@@ -56,7 +61,7 @@ public class ContainerTest {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
                 context.bind(Dependency.class, dependency);
 
-                Component component = context.get(Component.class);
+                Component component = context.get(Component.class).get();
 
                 assertNotNull(component);
                 assertSame(dependency, ((ComponentWithInjectConstructor) component).getDependency());
@@ -71,7 +76,7 @@ public class ContainerTest {
                 String anotherDependency = "Inject dependency";
                 context.bind(String.class, anotherDependency);
 
-                Component component = context.get(Component.class);
+                Component component = context.get(Component.class).get();
                 assertNotNull(component);
 
                 Dependency dependency = ((ComponentWithInjectConstructor) component).getDependency();
@@ -88,14 +93,30 @@ public class ContainerTest {
                 });
             }
 
-            // TODO no default or inject constructor
+            //  no default or inject constructor
             @Test
             public void should_throw_exception_if_no_inject_nor_default_constructor_provided() {
                 assertThrows(IllegalComponentException.class, () -> {
                     context.bind(Component.class, ComponentWithNoInjectNorDefaultConstructor.class);
                 });
             }
-            // TODO dependency not provided
+
+            //  dependency not provided
+            @Test
+            public void should_throw_exception_if_dependency_not_provided() {
+                context.bind(Component.class, ComponentWithInjectConstructor.class);
+                assertThrows(DependencyNotFoundException.class,
+                        () -> context.get(Component.class));
+            }
+
+            // TODO cyclic dependency
+            @Test
+            public void should_throw_exception_if_cyclic_dependency_found() {
+                context.bind(Component.class, ComponentWithInjectConstructor.class);
+                context.bind(Dependency.class, DependencyDependOnComponent.class);
+
+                assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+            }
         }
 
         @Nested
@@ -145,6 +166,16 @@ class ComponentWithInjectConstructor implements Component {
 
     public Dependency getDependency() {
         return dependency;
+    }
+}
+
+class DependencyDependOnComponent implements Dependency {
+
+    private Component component;
+
+    @Inject
+    public DependencyDependOnComponent(Component component) {
+        this.component = component;
     }
 }
 

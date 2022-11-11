@@ -4,10 +4,8 @@ import jakarta.inject.Inject;
 import jakarta.inject.Provider;
 
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.Stream;
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
 
 public class Context {
 
@@ -17,46 +15,41 @@ public class Context {
         providers.put(type, () -> instance);
     }
 
-    public <T> T get(Class<T> type) {
-        return (T) providers.get(type).get();
-    }
-
     public <Type, Implementation extends Type> void bind(Class<Type> type, Class<Implementation> implementation) {
-        Constructor<?>[] constructors = Arrays.stream(implementation.getConstructors())
-                .filter(c -> c.isAnnotationPresent(Inject.class))
-                .toArray(Constructor<?>[]::new);
-        if (constructors.length > 1) {
-            throw new IllegalComponentException();
-        }
-
-        if (constructors.length == 0 && Arrays.stream(implementation.getConstructors())
-                .noneMatch(constructor -> constructor.getParameters().length == 0)) {
-            throw new IllegalComponentException();
-        }
+        Constructor<?> constructor = getConstructor(implementation);
         providers.put(type, () -> {
             try {
-                Constructor<?> constructor = getConstructor(implementation);
                 Object[] dependencies = Arrays.stream(constructor.getParameters())
-                        .map(parameter -> get(parameter.getType()))
+                        .map(parameter -> get(parameter.getType()).orElseThrow(DependencyNotFoundException::new))
                         .toArray(Object[]::new);
                 return constructor.newInstance(dependencies);
-            } catch (Exception e) {
+            } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
     private static <Type> Constructor<?> getConstructor(Class<Type> implementation) {
-        Stream<Constructor<?>> stream = Arrays.stream(implementation.getConstructors())
-                .filter(constructor -> constructor.isAnnotationPresent(Inject.class));
-        return stream.findFirst()
+        List<Constructor<?>> constructors = Arrays.stream(implementation.getConstructors())
+                .filter(constructor -> constructor.isAnnotationPresent(Inject.class)).toList();
+
+        if (constructors.size() > 1) {
+            throw new IllegalComponentException();
+        }
+
+        return constructors.stream()
+                .findFirst()
                 .orElseGet(() -> {
                     try {
                         return implementation.getConstructor();
                     } catch (NoSuchMethodException e) {
-                        throw new RuntimeException(e);
+                        throw new IllegalComponentException();
                     }
                 });
     }
 
+    public <T> Optional<T> get(Class<T> type) {
+        return Optional.ofNullable(providers.get(type))
+                .map(provider -> (T) provider.get());
+    }
 }
