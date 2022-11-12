@@ -16,28 +16,57 @@ public class Context {
     }
 
     public <Type, Implementation extends Type> void bind(Class<Type> type, Class<Implementation> implementation) {
-        Constructor<?> constructor = getConstructor(implementation);
-        providers.put(type, () -> {
+        Constructor<Implementation> constructor = getConstructor(implementation);
+        providers.put(type, new ComponentProvider<>(constructor));
+    }
+
+    public <T> Optional<T> get(Class<T> type) {
+        return Optional.ofNullable(providers.get(type))
+                .map(provider -> (T) provider.get());
+    }
+
+
+    class ComponentProvider<Type> implements Provider<Type> {
+
+        private final Constructor<Type> constructor;
+
+        private boolean constructing;
+
+        public ComponentProvider(Constructor<Type> constructor) {
+            this.constructor = constructor;
+        }
+
+        @Override
+        public Type get() {
+            if (constructing) {
+                throw new CyclicDependencyException();
+            }
             try {
+                constructing = true;
                 Object[] dependencies = Arrays.stream(constructor.getParameters())
-                        .map(parameter -> get(parameter.getType()).orElseThrow(DependencyNotFoundException::new))
+                        .map(parameter -> Context.this.get(parameter.getType())
+                                .orElseThrow(DependencyNotFoundException::new))
                         .toArray(Object[]::new);
                 return constructor.newInstance(dependencies);
             } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
                 throw new RuntimeException(e);
+            } finally {
+                constructing = false;
             }
-        });
+        }
+
     }
 
-    private static <Type> Constructor<?> getConstructor(Class<Type> implementation) {
+    private static <Type> Constructor<Type> getConstructor(Class<Type> implementation) {
         List<Constructor<?>> constructors = Arrays.stream(implementation.getConstructors())
-                .filter(constructor -> constructor.isAnnotationPresent(Inject.class)).toList();
+                .filter(constructor -> constructor.isAnnotationPresent(Inject.class))
+                .toList();
 
         if (constructors.size() > 1) {
             throw new IllegalComponentException();
         }
 
-        return constructors.stream()
+        return (Constructor<Type>) constructors.stream()
                 .findFirst()
                 .orElseGet(() -> {
                     try {
@@ -46,10 +75,5 @@ public class Context {
                         throw new IllegalComponentException();
                     }
                 });
-    }
-
-    public <T> Optional<T> get(Class<T> type) {
-        return Optional.ofNullable(providers.get(type))
-                .map(provider -> (T) provider.get());
     }
 }

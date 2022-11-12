@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.lang.ref.PhantomReference;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ContainerTest {
@@ -109,11 +111,21 @@ public class ContainerTest {
                         () -> context.get(Component.class));
             }
 
-            // TODO cyclic dependency
+            //  cyclic dependency
             @Test
             public void should_throw_exception_if_cyclic_dependency_found() {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
                 context.bind(Dependency.class, DependencyDependOnComponent.class);
+
+                assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+            }
+
+            // TODO transitive cyclic dependency
+            @Test
+            public void should_throw_exception_if_transitive_cyclic_dependency_found() {
+                context.bind(Component.class, ComponentWithInjectConstructor.class);
+                context.bind(Dependency.class, DependencyDependOnAnotherDependency.class);
+                context.bind(AnotherDependency.class, AnotherDependencyDependOnComponent.class);
 
                 assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
             }
@@ -146,6 +158,10 @@ interface Component {
 }
 
 interface Dependency {
+
+}
+
+interface AnotherDependency {
 
 }
 
@@ -216,5 +232,25 @@ class DependencyWithInjectConstructor implements Dependency {
 
     public String getAnotherDependency() {
         return anotherDependency;
+    }
+}
+
+class DependencyDependOnAnotherDependency implements Dependency {
+
+    private AnotherDependency anotherDependency;
+
+    @Inject
+    public DependencyDependOnAnotherDependency(AnotherDependency anotherDependency) {
+        this.anotherDependency = anotherDependency;
+    }
+}
+
+class AnotherDependencyDependOnComponent implements AnotherDependency {
+
+    private Component component;
+
+    @Inject
+    public AnotherDependencyDependOnComponent(Component component) {
+        this.component = component;
     }
 }
