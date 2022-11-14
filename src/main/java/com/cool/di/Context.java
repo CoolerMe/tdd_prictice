@@ -17,7 +17,7 @@ public class Context {
 
     public <Type, Implementation extends Type> void bind(Class<Type> type, Class<Implementation> implementation) {
         Constructor<Implementation> constructor = getConstructor(implementation);
-        providers.put(type, new ComponentProvider<>(constructor));
+        providers.put(type, new ComponentProvider<>(constructor, type));
     }
 
     public <T> Optional<T> get(Class<T> type) {
@@ -30,24 +30,29 @@ public class Context {
 
         private final Constructor<Type> constructor;
 
+        private final Class<?> component;
+
         private boolean constructing;
 
-        public ComponentProvider(Constructor<Type> constructor) {
+        public ComponentProvider(Constructor<Type> constructor, Class<?> component) {
             this.constructor = constructor;
+            this.component = component;
         }
 
         @Override
         public Type get() {
             if (constructing) {
-                throw new CyclicDependencyException();
+                throw new CyclicDependencyException(component);
             }
             try {
                 constructing = true;
                 Object[] dependencies = Arrays.stream(constructor.getParameters())
                         .map(parameter -> Context.this.get(parameter.getType())
-                                .orElseThrow(DependencyNotFoundException::new))
+                                .orElseThrow(() -> new DependencyNotFoundException(component, parameter.getType())))
                         .toArray(Object[]::new);
                 return constructor.newInstance(dependencies);
+            }catch (CyclicDependencyException e){
+                throw new CyclicDependencyException(e, component);
             } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
                 throw new RuntimeException(e);
             } finally {

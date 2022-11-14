@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.lang.ref.PhantomReference;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -107,8 +107,22 @@ public class ContainerTest {
             @Test
             public void should_throw_exception_if_dependency_not_provided() {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
-                assertThrows(DependencyNotFoundException.class,
+                DependencyNotFoundException exception = assertThrows(DependencyNotFoundException.class,
                         () -> context.get(Component.class));
+
+                assertSame(Dependency.class, exception.getDependency());
+            }
+
+            @Test
+            public void should_throw_exception_if_transitive_dependency_not_provided() {
+                context.bind(Component.class, ComponentWithInjectConstructor.class);
+                context.bind(Dependency.class, DependencyWithInjectConstructor.class);
+
+                DependencyNotFoundException exception = assertThrows(DependencyNotFoundException.class,
+                        () -> context.get(Component.class));
+
+                assertEquals(String.class, exception.getDependency());
+                assertEquals(Dependency.class, exception.getComponent());
             }
 
             //  cyclic dependency
@@ -117,17 +131,28 @@ public class ContainerTest {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
                 context.bind(Dependency.class, DependencyDependOnComponent.class);
 
-                assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+
+                Set<Class<?>> components = exception.getComponents();
+                assertEquals(2, components.size());
+                assertTrue(components.contains(Component.class));
+                assertTrue(components.contains(Dependency.class));
             }
 
-            // TODO transitive cyclic dependency
+            // transitive cyclic dependency
             @Test
             public void should_throw_exception_if_transitive_cyclic_dependency_found() {
                 context.bind(Component.class, ComponentWithInjectConstructor.class);
                 context.bind(Dependency.class, DependencyDependOnAnotherDependency.class);
                 context.bind(AnotherDependency.class, AnotherDependencyDependOnComponent.class);
 
-                assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> context.get(Component.class));
+
+                Set<Class<?>> components = exception.getComponents();
+                assertEquals(3, components.size());
+                assertTrue(components.contains(Component.class));
+                assertTrue(components.contains(Dependency.class));
+                assertTrue(components.contains(AnotherDependency.class));
             }
         }
 
@@ -223,7 +248,7 @@ class ComponentWithNoInjectNorDefaultConstructor implements Component {
 
 class DependencyWithInjectConstructor implements Dependency {
 
-    private String anotherDependency;
+    private final String anotherDependency;
 
     @Inject
     public DependencyWithInjectConstructor(String anotherDependency) {
