@@ -124,7 +124,7 @@ public class ContainerTest {
                 contextConfig.bind(Dependency.class, DependencyWithInjectConstructor.class);
 
                 DependencyNotFoundException exception = assertThrows(DependencyNotFoundException.class,
-                        () -> contextConfig.getContext().get(Component.class));
+                        () -> contextConfig.getContext());
 
                 assertEquals(String.class, exception.getDependency());
                 assertEquals(Dependency.class, exception.getComponent());
@@ -136,7 +136,7 @@ public class ContainerTest {
                 contextConfig.bind(Component.class, ComponentWithInjectConstructor.class);
                 contextConfig.bind(Dependency.class, DependencyDependOnComponent.class);
 
-                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> contextConfig.getContext().get(Component.class));
+                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> contextConfig.getContext());
 
                 Set<Class<?>> components = exception.getComponents();
                 assertEquals(2, components.size());
@@ -151,7 +151,7 @@ public class ContainerTest {
                 contextConfig.bind(Dependency.class, DependencyDependOnAnotherDependency.class);
                 contextConfig.bind(AnotherDependency.class, AnotherDependencyDependOnComponent.class);
 
-                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> contextConfig.getContext().get(Component.class));
+                CyclicDependencyException exception = assertThrows(CyclicDependencyException.class, () -> contextConfig.getContext());
 
                 Set<Class<?>> components = exception.getComponents();
                 assertEquals(3, components.size());

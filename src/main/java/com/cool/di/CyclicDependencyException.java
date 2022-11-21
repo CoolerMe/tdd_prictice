@@ -2,6 +2,7 @@ package com.cool.di;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Stack;
 
 public class CyclicDependencyException extends RuntimeException {
 
@@ -11,9 +12,8 @@ public class CyclicDependencyException extends RuntimeException {
         this.components.add(component);
     }
 
-    public CyclicDependencyException(CyclicDependencyException exception, Class<?> component) {
-        components.addAll(exception.getComponents());
-        components.add(component);
+    public CyclicDependencyException(Stack<Class<?>> visiting) {
+        components.addAll(visiting);
     }
 
     public Set<Class<?>> getComponents() {
