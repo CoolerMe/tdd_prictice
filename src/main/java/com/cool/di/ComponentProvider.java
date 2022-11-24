@@ -9,6 +9,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.lang.reflect.Modifier.isAbstract;
+import static java.lang.reflect.Modifier.isFinal;
 import static java.util.Arrays.stream;
 import static java.util.stream.Stream.concat;
 
@@ -21,9 +23,20 @@ class ComponentProvider<T> implements ContextConfig.ConstructionProvider<T> {
     private final List<Method> methods;
 
     public ComponentProvider(Class<T> implementation) {
+        if (isAbstract(implementation.getModifiers())) {
+            throw new IllegalComponentException();
+        }
         this.constructor = getConstructor(implementation);
         this.fields = getFields(implementation);
         this.methods = getMethods(implementation);
+
+        if (fields.stream().anyMatch(field -> isFinal(field.getModifiers()))) {
+            throw new IllegalComponentException();
+        }
+
+        if (methods.stream().anyMatch(method -> method.getTypeParameters().length != 0)) {
+            throw new IllegalComponentException();
+        }
     }
 
     @Override
