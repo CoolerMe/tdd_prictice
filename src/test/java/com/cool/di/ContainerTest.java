@@ -18,6 +18,27 @@ public class ContainerTest {
         config = new ContextConfig();
     }
 
+    // instance
+    @Test
+    public void should_bind_type_to_a_specified_instance() {
+        Component instance = new Component() {
+        };
+        config.bind(Component.class, instance);
+
+        Context context = config.getContext();
+        Component component = context.get(Component.class).get();
+
+        assertSame(instance, component);
+    }
+
+
+
+    @Test
+    public void should_return_null_if_component_not_defined() {
+        assertTrue(config.getContext().get(Component.class).isEmpty());
+    }
+
+
     @Nested
     public class DependencyCheck {
 
