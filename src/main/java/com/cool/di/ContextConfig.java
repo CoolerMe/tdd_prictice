@@ -9,22 +9,12 @@ public class ContextConfig {
     private final Map<Class<?>, ConstructionProvider<?>> providers = new HashMap<>();
 
     public <T> void bind(Class<T> type, T instance) {
-        providers.put(type, new ConstructionProvider<T>() {
-            @Override
-            public T get(Context context) {
-                return instance;
-            }
-
-            @Override
-            public List<Class<?>> getDependencies() {
-                return of();
-            }
-        });
+        providers.put(type, context -> instance);
 
     }
 
     public <Type, Implementation extends Type> void bind(Class<Type> type, Class<Implementation> implementation) {
-        providers.put(type, new ComponentProvider<>(implementation));
+        providers.put(type, new InjectionProvider<>(implementation));
     }
 
 
@@ -49,7 +39,7 @@ public class ContextConfig {
                 throw new DependencyNotFoundException(component, dependency);
             }
             if (visiting.contains(dependency)) {
-                throw new CyclicDependencyException(visiting);
+                throw new CyclicDependenciesFoundException(visiting);
             }
             visiting.push(dependency);
             checkDependencies(dependency, visiting);
@@ -58,12 +48,14 @@ public class ContextConfig {
 
     }
 
-    interface ConstructionProvider<Type> {
+    static interface ConstructionProvider<Type> {
 
         Type get(Context context);
 
 
-        List<Class<?>> getDependencies();
+        default List<Class<?>> getDependencies() {
+            return of();
+        }
 
     }
 
